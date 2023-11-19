@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 )
@@ -24,6 +23,14 @@ type Task struct {
 	error      error
 }
 
+func (task *Task) Work() {
+	if task.createdAt.Nanosecond()%2 > 0 { // вот такое условие появления ошибочных тасков
+		task.error = fmt.Errorf("some error occurred, task id: %d; created: %s", task.id, task.createdAt.Format(time.DateTime))
+	}
+	task.finishedAt = time.Now()
+	time.Sleep(time.Millisecond * 150)
+}
+
 func CreateTasks(taskChan chan<- Task, nTasks int) {
 	for i := 0; i < nTasks; i++ {
 		taskChan <- Task{
@@ -32,14 +39,6 @@ func CreateTasks(taskChan chan<- Task, nTasks int) {
 		}
 	}
 	close(taskChan)
-}
-
-func (task *Task) Work() {
-	if task.createdAt.Nanosecond()%2 > 0 { // вот такое условие появления ошибочных тасков
-		task.error = fmt.Errorf("some error occurred, task id: %d; created: %s", task.id, task.createdAt.Format(time.DateTime))
-	}
-	task.finishedAt = time.Now()
-	time.Sleep(time.Millisecond * 150)
 }
 
 func main() {
