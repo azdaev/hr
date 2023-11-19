@@ -24,14 +24,17 @@ type Task struct {
 	error      error
 }
 
-func createTasks(taskChan chan Task, tasks int) {
-	for i := 0; i < tasks; i++ {
-		taskChan <- Task{id: rand.Int(), createdAt: time.Now()}
+func CreateTasks(taskChan chan<- Task, nTasks int) {
+	for i := 0; i < nTasks; i++ {
+		taskChan <- Task{
+			id:        rand.Int(),
+			createdAt: time.Now(),
+		}
 	}
 	close(taskChan)
 }
 
-func taskWorker(task *Task) {
+func (task *Task) Work() {
 	if task.createdAt.Nanosecond()%2 > 0 { // вот такое условие появления ошибочных тасков
 		task.error = fmt.Errorf("some error occurred, task id: %d; created: %s", task.id, task.createdAt.Format(time.DateTime))
 	}
@@ -40,22 +43,20 @@ func taskWorker(task *Task) {
 }
 
 func main() {
-	workers := 5
-	tasks := 50
-	taskChan := make(chan Task, tasks)
-	doneTasksChan := make(chan Task, tasks)
-	successTasks := make([]Task, 0)
-	errors := make([]error, 0)
+	nWorkers := 5
+	nTasks := 50
+	taskChan := make(chan Task, nWorkers)
+	doneTasksChan := make(chan Task)
 
-	go createTasks(taskChan, tasks)
+	go CreateTasks(taskChan, nTasks)
 
 	wg := new(sync.WaitGroup)
-	wg.Add(workers)
-	for i := 0; i < workers; i++ {
+	for i := 0; i < nWorkers; i++ {
+		wg.Add(1)
 		go func() {
 			// получение тасков
 			for task := range taskChan {
-				taskWorker(&task)
+				task.Work()
 				doneTasksChan <- task
 			}
 			wg.Done()
@@ -68,22 +69,13 @@ func main() {
 
 	for task := range doneTasksChan {
 		if task.error != nil {
-			errors = append(errors, task.error)
+			fmt.Println(task.error)
 			continue
 		}
-		successTasks = append(successTasks, task)
-	}
-
-	fmt.Println("Errors:")
-	for _, err := range errors {
-		fmt.Println(err)
-	}
-
-	fmt.Println("Done tasks:")
-	for _, task := range successTasks {
 		fmt.Printf("id: %d, created: %s, finished: %s\n",
 			task.id,
 			task.createdAt.Format(time.DateTime),
-			task.finishedAt.Format(time.DateTime))
+			task.finishedAt.Format(time.DateTime),
+		)
 	}
 }
